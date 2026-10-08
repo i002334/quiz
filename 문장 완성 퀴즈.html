@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>한자 카드 문장 완성 퀴즈</title>
+    <style>
+        :root {
+            --bg-color: #f4f7f6;
+            --card-bg: #ffffff;
+            --primary-color: #2c3e50;
+            --accent-color: #2980b9;
+            --success-color: #27ae60;
+            --error-color: #c0392b;
+        }
+
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .quiz-container {
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            padding: 25px;
+            max-width: 650px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .progress {
+            font-size: 0.95rem;
+            color: #7f8c8d;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+
+        .question-box {
+            background-color: #eef2f5;
+            padding: 20px;
+            border-radius: 8px;
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            min-height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .answer-slots {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 30px;
+            min-height: 80px;
+            flex-wrap: wrap;
+        }
+
+        .card {
+            width: 60px;
+            height: 75px;
+            border: 2px solid #bdc3c7;
+            border-radius: 8px;
+            background-color: #fff;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .card:hover {
+            transform: translateY(-3px);
+            border-color: var(--accent-color);
+        }
+
+        .card .hanja {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .card .eum {
+            font-size: 0.75rem;
+            color: #7f8c8d;
+            margin-top: 2px;
+        }
+
+        .slot {
+            border: 2px dashed #95a5a6;
+            background-color: #fafafa;
+        }
+
+        .card-pool {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            padding-top: 15px;
+            border-top: 2px solid #ecf0f1;
+        }
+
+        .btn-group {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 1rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-check { background-color: var(--accent-color); color: white; }
+        .btn-check:hover { background-color: #1a5276; }
+
+        .btn-reset { background-color: #95a5a6; color: white; }
+        .btn-reset:hover { background-color: #7f8c8d; }
+
+        .btn-next { background-color: var(--success-color); color: white; display: none; }
+        .btn-next:hover { background-color: #1e8449; }
+
+        .message {
+            margin-top: 15px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            min-height: 25px;
+        }
+
+        .message.correct { color: var(--success-color); }
+        .message.incorrect { color: var(--error-color); }
+    </style>
+</head>
+<body>
+
+<div class="quiz-container">
+    <div class="progress" id="progress">문제 1 / 13</div>
+    <div class="question-box" id="question">문제가 여기에 표시됩니다.</div>
+
+    <!-- 정답 조합 슬롯 -->
+    <div class="answer-slots" id="answerSlots"></div>
+
+    <!-- 한자 카드 선택 영역 -->
+    <div class="card-pool" id="cardPool"></div>
+
+    <div class="message" id="message"></div>
+
+    <div class="btn-group">
+        <button class="btn-reset" onclick="resetAnswer()">초기화</button>
+        <button class="btn-check" id="checkBtn" onclick="checkAnswer()">정답 확인</button>
+        <button class="btn-next" id="nextBtn" onclick="nextQuestion()">다음 문제</button>
+    </div>
+</div>
+
+<script>
+    // 전체 한자 카드 데이터
+    const ALL_CARDS = [
+        { hanja: '高', eum: '고' },
+        { hanja: '多', eum: '다' },
+        { hanja: '讀', eum: '독' },
+        { hanja: '冷', eum: '냉' },
+        { hanja: '氷', eum: '빙' },
+        { hanja: '山', eum: '산' },
+        { hanja: '書', eum: '서' },
+        { hanja: '水', eum: '수' },
+        { hanja: '兒', eum: '아' },
+        { hanja: '於', eum: '어' },
+        { hanja: '爲', eum: '위' },
+        { hanja: '天', eum: '천' },
+        { hanja: '靑', eum: '청' },
+        { hanja: '秋', eum: '추' }
+    ];
+
+    // 문제 및 정답 데이터[cite: 1]
+    const QUIZ_DATA = [
+        { q: "산이 높다.", answer: ["山", "高"] },
+        { q: "산이 높고 푸르다.", answer: ["山", "高", "靑"] },
+        { q: "푸른 산이 높다.", answer: ["靑", "山", "高"] },
+        { q: "하늘이 파랗다.", answer: ["天", "靑"] },
+        { q: "가을 하늘이 파랗다.", answer: ["秋", "天", "靑"] },
+        { q: "가을 하늘이 높다.", answer: ["秋", "天", "高"] },
+        { q: "책을 읽다.", answer: ["讀", "書"] },
+        { q: "아이가 책을 읽는다.", answer: ["兒", "讀", "書"] },
+        { q: "아이가 책을 많이 읽는다.", answer: ["兒", "多", "讀", "書"] },
+        { q: "차가운 물은 얼음이 되었다.", answer: ["冷", "水", "爲", "氷"] },
+        { q: "차가운 얼음은 푸른 물이 되었다.", answer: ["冷", "氷", "爲", "靑", "水"] },
+        { q: "얼음은 물보다 차갑다.", answer: ["氷", "冷", "於", "水"] },
+        { q: "아이가 산에서 책을 읽는다.", answer: ["兒", "讀", "書", "於", "山"] }
+    ];
+
+    let currentIdx = 0;
+    let selectedCards = [];
+
+    function loadQuestion() {
+        const currentQuiz = QUIZ_DATA[currentIdx];
+        document.getElementById('progress').innerText = `문제 ${currentIdx + 1} / ${QUIZ_DATA.length}`;
+        document.getElementById('question').innerText = currentQuiz.q;
+        document.getElementById('message').innerText = '';
+        document.getElementById('message').className = 'message';
+        
+        document.getElementById('checkBtn').style.display = 'inline-block';
+        document.getElementById('nextBtn').style.display = 'none';
+
+        selectedCards = [];
+        renderSlots();
+        renderPool();
+    }
+
+    function renderSlots() {
+        const slotsContainer = document.getElementById('answerSlots');
+        slotsContainer.innerHTML = '';
+        const targetLen = QUIZ_DATA[currentIdx].answer.length;
+
+        for (let i = 0; i < targetLen; i++) {
+            if (i < selectedCards.length) {
+                const cardObj = selectedCards[i];
+                const cardEl = createCardElement(cardObj, () => removeCard(i));
+                slotsContainer.appendChild(cardEl);
+            } else {
+                const slotEl = document.createElement('div');
+                slotEl.className = 'card slot';
+                slotsContainer.appendChild(slotEl);
+            }
+        }
+    }
+
+    function renderPool() {
+        const poolContainer = document.getElementById('cardPool');
+        poolContainer.innerHTML = '';
+
+        ALL_CARDS.forEach(cardObj => {
+            const cardEl = createCardElement(cardObj, () => selectCard(cardObj));
+            poolContainer.appendChild(cardEl);
+        });
+    }
+
+    function createCardElement(cardObj, onClick) {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.onclick = onClick;
+
+        const hanja = document.createElement('div');
+        hanja.className = 'hanja';
+        hanja.innerText = cardObj.hanja;
+
+        const eum = document.createElement('div');
+        eum.className = 'eum';
+        eum.innerText = cardObj.eum;
+
+        card.appendChild(hanja);
+        card.appendChild(eum);
+        return card;
+    }
+
+    function selectCard(cardObj) {
+        const maxLen = QUIZ_DATA[currentIdx].answer.length;
+        if (selectedCards.length < maxLen) {
+            selectedCards.push(cardObj);
+            renderSlots();
+        }
+    }
+
+    function removeCard(index) {
+        selectedCards.splice(index, 1);
+        renderSlots();
+    }
+
+    function resetAnswer() {
+        selectedCards = [];
+        renderSlots();
+        document.getElementById('message').innerText = '';
+    }
+
+    function checkAnswer() {
+        const currentAnswer = QUIZ_DATA[currentIdx].answer;
+        const msgEl = document.getElementById('message');
+
+        if (selectedCards.length < currentAnswer.length) {
+            msgEl.innerText = '모든 칸을 한자 카드로 채워주세요!';
+            msgEl.className = 'message incorrect';
+            return;
+        }
+
+        const userAnswer = selectedCards.map(c => c.hanja);
+        const isCorrect = userAnswer.every((val, idx) => val === currentAnswer[idx]);
+
+        if (isCorrect) {
+            msgEl.innerText = '정답입니다! 👏';
+            msgEl.className = 'message correct';
+            document.getElementById('checkBtn').style.display = 'none';
+            document.getElementById('nextBtn').style.display = 'inline-block';
+        } else {
+            msgEl.innerText = '틀렸습니다. 다시 시도해보세요!';
+            msgEl.className = 'message incorrect';
+        }
+    }
+
+    function nextQuestion() {
+        currentIdx++;
+        if (currentIdx < QUIZ_DATA.length) {
+            loadQuestion();
+        } else {
+            alert('축하합니다! 모든 문제를 다 풀었습니다.');
+            currentIdx = 0;
+            loadQuestion();
+        }
+    }
+
+    // 초기 실행
+    loadQuestion();
+</script>
+
+</body>
+</html>
